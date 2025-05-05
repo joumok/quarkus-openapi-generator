@@ -1,13 +1,16 @@
 package io.quarkiverse.openapi.generator.providers;
 
+import static io.quarkiverse.openapi.generator.AuthConfig.TOKEN_PROPAGATION;
+
 import java.io.IOException;
 import java.util.List;
 
 import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.core.HttpHeaders;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.eclipse.microprofile.config.ConfigProvider;
+
+import io.quarkiverse.openapi.generator.OpenApiGeneratorException;
 
 /**
  * Provider for Basic Authentication.
@@ -15,39 +18,39 @@ import org.slf4j.LoggerFactory;
  * during build time.
  */
 public class BasicAuthenticationProvider extends AbstractAuthProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(BasicAuthenticationProvider.class);
 
-    public BasicAuthenticationProvider(final String openApiSpecId, String name, List<OperationAuthInfo> operations,
-            CredentialsProvider credentialsProvider) {
-        super(name, openApiSpecId, operations, credentialsProvider);
-    }
+    static final String USER_NAME = "username";
+    static final String PASSWORD = "password";
 
     public BasicAuthenticationProvider(final String openApiSpecId, String name, List<OperationAuthInfo> operations) {
-        this(openApiSpecId, name, operations, new ConfigCredentialsProvider());
+        super(name, openApiSpecId, operations);
+        validateConfig();
     }
 
-    private String getUsername(ClientRequestContext requestContext) {
-        return credentialsProvider.getBasicUsername(requestContext, getOpenApiSpecId(), getName());
+    private String getUsername() {
+        return ConfigProvider.getConfig().getOptionalValue(getCanonicalAuthConfigPropertyName(USER_NAME), String.class)
+                .orElse("");
     }
 
-    private String getPassword(ClientRequestContext requestContext) {
-        return credentialsProvider.getBasicPassword(requestContext, getOpenApiSpecId(), getName());
+    private String getPassword() {
+        return ConfigProvider.getConfig().getOptionalValue(getCanonicalAuthConfigPropertyName(PASSWORD), String.class)
+                .orElse("");
     }
 
     @Override
     public void filter(ClientRequestContext requestContext) throws IOException {
-        String basicToken = AuthUtils.basicAuthAccessTokenWithoutPrefix(getUsername(requestContext),
-                getPassword(requestContext));
+        requestContext.getHeaders().add(HttpHeaders.AUTHORIZATION,
+                AuthUtils.basicAuthAccessToken(getUsername(), getPassword()));
+    }
 
+    private void validateConfig() {
         if (isTokenPropagation()) {
-            LOGGER.warn("Token propagation enabled for BasicAuthentication");
-            basicToken = sanitizeBasicToken(getTokenForPropagation(requestContext.getHeaders()));
+            throw new OpenApiGeneratorException(
+                    "Token propagation is not admitted for the OpenApi securitySchemes of \"type\": \"http\", \"scheme\": \"basic\"."
+                            +
+                            " A potential source of the problem might be that the configuration property " +
+                            getCanonicalAuthConfigPropertyName(TOKEN_PROPAGATION) +
+                            " was set with the value true in your application, please check your configuration.");
         }
-
-        if (!basicToken.isBlank()) {
-            requestContext.getHeaders().add(HttpHeaders.AUTHORIZATION,
-                    AuthUtils.basicAuthAccessToken(basicToken));
-        }
-
     }
 }

@@ -6,6 +6,8 @@ import java.util.List;
 import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.core.HttpHeaders;
 
+import org.eclipse.microprofile.config.ConfigProvider;
+
 /**
  * Provides bearer token authentication or any other valid scheme.
  *
@@ -13,33 +15,33 @@ import jakarta.ws.rs.core.HttpHeaders;
  */
 public class BearerAuthenticationProvider extends AbstractAuthProvider {
 
+    static final String BEARER_TOKEN = "bearer-token";
+
     private final String scheme;
 
     public BearerAuthenticationProvider(final String openApiSpecId, final String name, final String scheme,
-            List<OperationAuthInfo> operations, CredentialsProvider credentialsProvider) {
-        super(name, openApiSpecId, operations, credentialsProvider);
-        this.scheme = scheme;
-    }
-
-    public BearerAuthenticationProvider(final String openApiSpecId, final String name, final String scheme,
             List<OperationAuthInfo> operations) {
-        this(openApiSpecId, name, scheme, operations, new ConfigCredentialsProvider());
+        super(name, openApiSpecId, operations);
+        this.scheme = scheme;
     }
 
     @Override
     public void filter(ClientRequestContext requestContext) throws IOException {
-        String bearerToken = getBearerToken(requestContext);
-
+        String bearerToken;
         if (isTokenPropagation()) {
-            bearerToken = sanitizeBearerToken(getTokenForPropagation(requestContext.getHeaders()));
+            bearerToken = getTokenForPropagation(requestContext.getHeaders());
+            bearerToken = sanitizeBearerToken(bearerToken);
+        } else {
+            bearerToken = getBearerToken();
         }
-
         if (!bearerToken.isBlank()) {
-            requestContext.getHeaders().add(HttpHeaders.AUTHORIZATION, AuthUtils.authTokenOrBearer(this.scheme, bearerToken));
+            requestContext.getHeaders().add(HttpHeaders.AUTHORIZATION,
+                    AuthUtils.authTokenOrBearer(this.scheme, bearerToken));
         }
     }
 
-    private String getBearerToken(ClientRequestContext requestContext) {
-        return credentialsProvider.getBearerToken(requestContext, getOpenApiSpecId(), getName());
+    private String getBearerToken() {
+        return ConfigProvider.getConfig().getOptionalValue(getCanonicalAuthConfigPropertyName(BEARER_TOKEN), String.class)
+                .orElse("");
     }
 }

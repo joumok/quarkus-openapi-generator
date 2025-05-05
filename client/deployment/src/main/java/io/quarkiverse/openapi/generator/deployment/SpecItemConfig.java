@@ -2,7 +2,6 @@ package io.quarkiverse.openapi.generator.deployment;
 
 import java.util.Optional;
 
-import io.smallrye.config.WithDefault;
 import io.smallrye.config.WithName;
 
 /*
@@ -19,12 +18,6 @@ public interface SpecItemConfig extends CommonItemConfig {
      */
     @WithName("base-package")
     Optional<String> basePackage();
-
-    /**
-     * Custom config key to use in place of the openapi spec file
-     */
-    @WithName("config-key")
-    Optional<String> configKey();
 
     /**
      * Suffix name for generated api classes
@@ -62,21 +55,4 @@ public interface SpecItemConfig extends CommonItemConfig {
      */
     @WithName("remove-operation-id-prefix-count")
     Optional<Integer> removeOperationIdPrefixCount();
-
-    /**
-     * Set serializable model
-     */
-    @WithName("serializable-model")
-    Optional<Boolean> serializableModel();
-
-    /**
-     * Whether to enable Dynamic URLs on APIs methods.
-     * By enabling this property every method on `RestClients` will be annotated with `io.quarkus.rest.client.reactive.Url`.
-     *
-     * @see <a href="https://quarkus.io/version/3.20/guides/rest-client#dynamic-base-urls">Dynamic base URLs</a>
-     */
-    @WithName("use-dynamic-url")
-    @WithDefault("false")
-    Optional<Boolean> useDynamicUrl();
-
 }

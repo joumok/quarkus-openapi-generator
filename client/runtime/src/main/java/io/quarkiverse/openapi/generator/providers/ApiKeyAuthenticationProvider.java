@@ -11,6 +11,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriBuilder;
 
 import org.eclipse.microprofile.config.ConfigProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.quarkiverse.openapi.generator.OpenApiGeneratorException;
 
@@ -19,33 +21,30 @@ import io.quarkiverse.openapi.generator.OpenApiGeneratorException;
  */
 public class ApiKeyAuthenticationProvider extends AbstractAuthProvider {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiKeyAuthenticationProvider.class);
+
+    static final String API_KEY = "api-key";
     static final String USE_AUTHORIZATION_HEADER_VALUE = "use-authorization-header-value";
+
     private final ApiKeyIn apiKeyIn;
     private final String apiKeyName;
 
     public ApiKeyAuthenticationProvider(final String openApiSpecId, final String name, final ApiKeyIn apiKeyIn,
-            final String apiKeyName, List<OperationAuthInfo> operations, CredentialsProvider credentialsProvider) {
-        super(name, openApiSpecId, operations, credentialsProvider);
+            final String apiKeyName, List<OperationAuthInfo> operations) {
+        super(name, openApiSpecId, operations);
         this.apiKeyIn = apiKeyIn;
         this.apiKeyName = apiKeyName;
         validateConfig();
-    }
-
-    public ApiKeyAuthenticationProvider(final String openApiSpecId, final String name, final ApiKeyIn apiKeyIn,
-            final String apiKeyName, List<OperationAuthInfo> operations) {
-        this(openApiSpecId, name, apiKeyIn, apiKeyName, operations, new ConfigCredentialsProvider());
     }
 
     @Override
     public void filter(ClientRequestContext requestContext) throws IOException {
         switch (apiKeyIn) {
             case query:
-                requestContext.setUri(
-                        UriBuilder.fromUri(requestContext.getUri()).queryParam(apiKeyName, getApiKey(requestContext)).build());
+                requestContext.setUri(UriBuilder.fromUri(requestContext.getUri()).queryParam(apiKeyName, getApiKey()).build());
                 break;
             case cookie:
-                requestContext.getHeaders().add(HttpHeaders.COOKIE,
-                        new Cookie.Builder(apiKeyName).value(getApiKey(requestContext)).build());
+                requestContext.getHeaders().add(HttpHeaders.COOKIE, new Cookie.Builder(apiKeyName).value(getApiKey()).build());
                 break;
             case header:
                 if (requestContext.getHeaderString("Authorization") != null
@@ -53,13 +52,19 @@ public class ApiKeyAuthenticationProvider extends AbstractAuthProvider {
                         && isUseAuthorizationHeaderValue()) {
                     requestContext.getHeaders().putSingle(apiKeyName, requestContext.getHeaderString("Authorization"));
                 } else
-                    requestContext.getHeaders().putSingle(apiKeyName, getApiKey(requestContext));
+                    requestContext.getHeaders().putSingle(apiKeyName, getApiKey());
                 break;
         }
     }
 
-    private String getApiKey(ClientRequestContext requestContext) {
-        return credentialsProvider.getApiKey(requestContext, getOpenApiSpecId(), getName());
+    private String getApiKey() {
+        final String key = ConfigProvider.getConfig()
+                .getOptionalValue(getCanonicalAuthConfigPropertyName(API_KEY), String.class).orElse("");
+        if (key.isEmpty()) {
+            LOGGER.warn("configured {} property (see application.properties) is empty. hint: configure it.",
+                    getCanonicalAuthConfigPropertyName(API_KEY));
+        }
+        return key;
     }
 
     private boolean isUseAuthorizationHeaderValue() {

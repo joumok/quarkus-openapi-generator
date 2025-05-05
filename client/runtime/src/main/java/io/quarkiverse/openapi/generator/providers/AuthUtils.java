@@ -10,14 +10,10 @@ public final class AuthUtils {
     private AuthUtils() {
     }
 
-    public static String basicAuthAccessTokenWithoutPrefix(final String username, final String password) {
-        return Base64.getEncoder().encodeToString(String.format("%s:%s", username, password).getBytes());
-    }
-
-    public static String basicAuthAccessToken(final String basicToken) {
+    public static String basicAuthAccessToken(final String username, final String password) {
         return String.format("%s %s",
                 BASIC_HEADER_PREFIX,
-                basicToken);
+                Base64.getEncoder().encodeToString(String.format("%s:%s", username, password).getBytes()));
     }
 
     public static String authTokenOrBearer(final String scheme, final String token) {
