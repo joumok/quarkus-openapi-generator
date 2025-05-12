@@ -183,10 +183,4 @@ public interface CommonItemConfig {
      */
     @WithName("additional-properties-as-attribute")
     Optional<String> additionalPropertiesAsAttribute();
-
-    /**
-     * Initialise collections as empty instead of null
-     */
-    @WithName("initialize-empty-collections")
-    Optional<String> initializeEmptyCollections();
 }
